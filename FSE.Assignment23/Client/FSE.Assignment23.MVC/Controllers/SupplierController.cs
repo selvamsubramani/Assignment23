@@ -1,31 +1,29 @@
 ﻿using FSE.Assignment23.MVC.Models;
+using FSE.Assignment23.MVC.Utility;
 using Newtonsoft.Json;
-using System;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Text;
 using System.Web.Mvc;
 
 namespace FSE.Assignment23.MVC.Controllers
 {
     public class SupplierController : Controller
     {
-        // GET: Supplier
+        private readonly IWebApiClient _client;
+        private const string API = "Supplier";
+
+        public SupplierController(IWebApiClient client)
+        {
+            _client = client;
+        }
+        public SupplierController() : this(new WebApiClient()) { }
+
         public ActionResult Index()
         {
             IEnumerable<Supplier> suppliers = null;
-            using (var client = new HttpClient())
+            var result = _client.GetData(API);
+            if (result != null)
             {
-                client.BaseAddress = new Uri("http://localhost:60394/api/");
-                var task = client.GetAsync("Supplier");
-                task.Wait();
-                var result = task.Result;
-                if (result.IsSuccessStatusCode)
-                {
-                    var response = result.Content.ReadAsStringAsync();
-                    response.Wait();
-                    suppliers = JsonConvert.DeserializeObject<IEnumerable<Supplier>>(response.Result);
-                }
+                suppliers = JsonConvert.DeserializeObject<IEnumerable<Supplier>>(result);
             }
             return View(suppliers);
         }
@@ -43,83 +41,49 @@ namespace FSE.Assignment23.MVC.Controllers
                 Address = collection.Get("Address")
             };
 
-            using (var client = new HttpClient())
+            var result = _client.AddData(API, JsonConvert.SerializeObject(supplier));
+            if (result)
             {
-                var content = new StringContent(JsonConvert.SerializeObject(supplier), Encoding.UTF8, "application/json");
-                client.BaseAddress = new Uri("http://localhost:60394/api/");
-
-                var task = client.PostAsync("Supplier", content);
-                task.Wait();
-                var result = task.Result;
-                if (result.IsSuccessStatusCode)
-                {
-                    return RedirectToAction("Index");
-                }
-                else
-                {
-                    return View(supplier);
-                }
+                return RedirectToAction("Index");
+            }
+            else
+            {
+                return View(supplier);
             }
         }
         public ActionResult Edit(string code)
         {
             Supplier supplier = null;
-            using (var client = new HttpClient())
+            var result = _client.GetData(API, code);
+            if (result != null)
             {
-                client.BaseAddress = new Uri("http://localhost:60394/api/");
-                var task = client.GetAsync($"Supplier/{code}");
-                task.Wait();
-                var result = task.Result;
-                if (result.IsSuccessStatusCode)
-                {
-                    var response = result.Content.ReadAsStringAsync();
-                    response.Wait();
-                    supplier = JsonConvert.DeserializeObject<Supplier>(response.Result);
-                }
+                supplier = JsonConvert.DeserializeObject<Supplier>(result);
             }
             return View(supplier);
         }
         [HttpPost]
         public ActionResult Edit(string code, FormCollection collection)
         {
-
             var supplier = new Supplier
             {
                 Code = code,
                 Name = collection.Get("Name"),
                 Address = collection.Get("Address")
             };
+            var result = _client.EditData(API, JsonConvert.SerializeObject(supplier));
 
-            using (var client = new HttpClient())
+            if (result)
             {
-                var content = new StringContent(JsonConvert.SerializeObject(supplier), Encoding.UTF8, "application/json");
-                client.BaseAddress = new Uri("http://localhost:60394/api/");
-
-                var task = client.PutAsync($"Supplier/{code}", content);
-                task.Wait();
-                var result = task.Result;
-                if (result.IsSuccessStatusCode)
-                {
-                    return RedirectToAction("Index");
-                }
-                else
-                {
-                    return View(supplier);
-                }
+                return RedirectToAction("Index");
+            }
+            else
+            {
+                return View(supplier);
             }
         }
         public ActionResult Delete(string code)
         {
-            using (var client = new HttpClient())
-            {
-                client.BaseAddress = new Uri("http://localhost:60394/api/");
-                var task = client.DeleteAsync($"Supplier/{code}");
-                task.Wait();
-                if (task.Result.IsSuccessStatusCode)
-                {
-                    return RedirectToAction("Index");
-                }
-            }
+            _client.DeleteData(API, code);
             return RedirectToAction("Index");
         }
     }
